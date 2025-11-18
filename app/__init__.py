@@ -1,0 +1,1 @@
+# FastAPI Color Palette Extractor

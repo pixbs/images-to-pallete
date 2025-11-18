@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Image Color Palette Extractor</title>
+    <link rel="stylesheet" href="/static/css/styles.css">
+</head>
+
+<body>
+    <div class="container">
+        <h1>🎨 Image Color Palette Extractor</h1>
+
+        <div class="upload-section">
+            <div class="file-input-wrapper">
+                <label for="imageInput" class="upload-btn">
+                    Choose Image
+                </label>
+                <input type="file" id="imageInput" accept="image/*">
+            </div>
+            <div class="paste-hint">
+                💡 Or press <kbd>Ctrl</kbd>+<kbd>V</kbd> to paste an image from clipboard
+            </div>
+            <img id="preview" alt="Preview">
+        </div>
+
+        <div class="sort-controls" id="sortControls" style="display: none;">
+            <div class="control-group">
+                <label for="sortSelect">Sort by:</label>
+                <select id="sortSelect">
+                    <option value="frequency">Frequency (Most Common)</option>
+                    <option value="luminosity">Luminosity (Brightest First)</option>
+                    <option value="rainbow">Rainbow (Red → Violet)</option>
+                </select>
+            </div>
+
+            <div class="control-group">
+                <label for="limitInput">Color limit:</label>
+                <input type="number" id="limitInput" min="1" max="64" placeholder="64 (max)" />
+            </div>
+        </div>
+
+        <div id="loading">
+            <div class="loading-spinner"></div>
+            Processing image...
+        </div>
+        <div id="stats" class="stats"></div>
+        <div id="colorsGrid" class="colors-grid"></div>
+    </div>
+
+    <div id="copiedNotification" class="copied-notification">
+        Color copied to clipboard!
+    </div>
+
+    <script src="/static/js/app.js"></script>
+</body>
+
+</html>
