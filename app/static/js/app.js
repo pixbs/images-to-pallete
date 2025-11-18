@@ -32,7 +32,11 @@ document.addEventListener('paste', async (e) => {
             reader.readAsDataURL(blob);
 
             // Process image with slight delay to allow UI update
-            setTimeout(() => processImageFile(blob), 50);
+            setTimeout(() => {
+                const limitValue = getLimitValue();
+                const autoLimit = autoLimitCheckbox.checked;
+                processImageFile(blob, sortSelect.value, limitValue, autoLimit);
+            }, 50);
             return;
         }
     }
@@ -51,7 +55,11 @@ imageInput.addEventListener('change', async (e) => {
     reader.readAsDataURL(file);
 
     // Upload and process with slight delay to allow UI update
-    setTimeout(() => processImageFile(file), 50);
+    setTimeout(() => {
+        const limitValue = getLimitValue();
+        const autoLimit = autoLimitCheckbox.checked;
+        processImageFile(file, sortSelect.value, limitValue, autoLimit);
+    }, 50);
 });
 
 sortSelect.addEventListener('change', async () => {
