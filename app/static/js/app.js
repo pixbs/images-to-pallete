@@ -73,7 +73,7 @@ limitInput.addEventListener('change', async () => {
 autoLimitCheckbox.addEventListener('change', async () => {
     // Disable/enable limit input based on checkbox
     limitInput.disabled = autoLimitCheckbox.checked;
-    
+
     if (currentImageData) {
         const limitValue = getLimitValue();
         const autoLimit = autoLimitCheckbox.checked;
