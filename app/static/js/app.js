@@ -7,6 +7,7 @@ const copiedNotification = document.getElementById('copiedNotification');
 const sortControls = document.getElementById('sortControls');
 const sortSelect = document.getElementById('sortSelect');
 const limitInput = document.getElementById('limitInput');
+const autoLimitCheckbox = document.getElementById('autoLimitCheckbox');
 
 let currentImageData = null;
 let allColors = null;
@@ -56,14 +57,27 @@ imageInput.addEventListener('change', async (e) => {
 sortSelect.addEventListener('change', async () => {
     if (currentImageData) {
         const limitValue = getLimitValue();
-        await processImageFile(currentImageData, sortSelect.value, limitValue);
+        const autoLimit = autoLimitCheckbox.checked;
+        await processImageFile(currentImageData, sortSelect.value, limitValue, autoLimit);
     }
 });
 
 limitInput.addEventListener('change', async () => {
     if (currentImageData) {
         const limitValue = getLimitValue();
-        await processImageFile(currentImageData, sortSelect.value, limitValue);
+        const autoLimit = autoLimitCheckbox.checked;
+        await processImageFile(currentImageData, sortSelect.value, limitValue, autoLimit);
+    }
+});
+
+autoLimitCheckbox.addEventListener('change', async () => {
+    // Disable/enable limit input based on checkbox
+    limitInput.disabled = autoLimitCheckbox.checked;
+    
+    if (currentImageData) {
+        const limitValue = getLimitValue();
+        const autoLimit = autoLimitCheckbox.checked;
+        await processImageFile(currentImageData, sortSelect.value, limitValue, autoLimit);
     }
 });
 
@@ -78,7 +92,7 @@ function getLimitValue() {
     return Math.min(Math.max(numValue, 1), 64);
 }
 
-async function processImageFile(file, sortBy = 'frequency', limit = null) {
+async function processImageFile(file, sortBy = 'frequency', limit = null, autoLimit = false) {
     // File size warning for very large images
     const maxRecommendedSize = 10 * 1024 * 1024; // 10MB
     if (file.size > maxRecommendedSize) {
@@ -98,7 +112,9 @@ async function processImageFile(file, sortBy = 'frequency', limit = null) {
 
     try {
         let url = `/extract-colors?sort_by=${sortBy}`;
-        if (limit !== null) {
+        if (autoLimit) {
+            url += `&auto_limit=true`;
+        } else if (limit !== null) {
             url += `&limit=${limit}`;
         }
 
@@ -115,7 +131,14 @@ async function processImageFile(file, sortBy = 'frequency', limit = null) {
 
             displayColors(data.colors);
 
-            const limitText = limit ? ` (limited to ${limit})` : ` (max 64)`;
+            let limitText = '';
+            if (autoLimit) {
+                limitText = ` (auto-detected: ${data.total_colors})`;
+            } else if (limit) {
+                limitText = ` (limited to ${limit})`;
+            } else {
+                limitText = ` (max 64)`;
+            }
             stats.innerHTML = `Found <strong>${data.total_colors}</strong> unique colors${limitText}`;
             sortControls.style.display = 'flex';
         }
@@ -126,12 +149,12 @@ async function processImageFile(file, sortBy = 'frequency', limit = null) {
     }
 }
 
-async function processImageData(imageData, sortBy = 'frequency', limit = null) {
+async function processImageData(imageData, sortBy = 'frequency', limit = null, autoLimit = false) {
     loading.style.display = 'block';
 
     if (imageData instanceof Blob) {
         // If it's a blob/file, use the file upload method
-        await processImageFile(imageData, sortBy, limit);
+        await processImageFile(imageData, sortBy, limit, autoLimit);
         return;
     }
 

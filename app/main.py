@@ -58,10 +58,10 @@ async def home():
 
 
 @app.post("/extract-colors")
-async def extract_colors_endpoint(file: UploadFile = File(...), sort_by: str = 'frequency', limit: int = None):
+async def extract_colors_endpoint(file: UploadFile = File(...), sort_by: str = 'frequency', limit: int = None, auto_limit: bool = False):
     """Extract colors from uploaded image."""
     contents = await file.read()
-    colors = extract_colors(contents, sort_by, limit)
+    colors = extract_colors(contents, sort_by, limit, auto_limit)
     
     return {
         "colors": colors,
@@ -82,7 +82,8 @@ async def extract_colors_base64(data: Dict = Body(...)):
         image_bytes = base64.b64decode(base64_string)
         sort_by = data.get('sort_by', 'frequency')
         limit = data.get('limit')
-        colors = extract_colors(image_bytes, sort_by, limit)
+        auto_limit = data.get('auto_limit', False)
+        colors = extract_colors(image_bytes, sort_by, limit, auto_limit)
         
         return {
             "colors": colors,

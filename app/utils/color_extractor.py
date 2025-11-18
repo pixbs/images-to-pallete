@@ -19,101 +19,105 @@ def rgb_to_luminosity(rgb):
     return 0.299 * r + 0.587 * g + 0.114 * b
 
 
-def color_distance(rgb1, rgb2):
-    """Calculate the Euclidean distance between two RGB colors."""
-    return sum((a - b) ** 2 for a, b in zip(rgb1, rgb2)) ** 0.5
-
-
-def quantize_image_colors(image: Image.Image, max_colors: int = 256) -> Image.Image:
-    """Reduce the number of colors in an image using quantization."""
-    # Convert to P mode (palette mode) with adaptive palette
-    return image.quantize(colors=max_colors, method=2)
-
-
-def merge_similar_colors(color_list: List[Dict], max_colors: int) -> List[Dict]:
-    """Merge similar colors to reduce palette to max_colors while maintaining balance."""
-    if len(color_list) <= max_colors:
-        return color_list
+def quantize_to_palette(image: Image.Image, num_colors: int) -> tuple:
+    """
+    Quantize image to exact number of colors using PIL's built-in quantization.
+    Returns the quantized image and the palette colors with their counts.
+    """
+    # Use PIL's adaptive palette quantization (method=2 is MEDIANCUT)
+    quantized = image.quantize(colors=num_colors, method=2)
     
-    # Create a working copy with rgb_tuple
-    working_colors = []
-    for color in color_list:
-        # Parse RGB from string
-        rgb_str = color['rgb'].replace('rgb(', '').replace(')', '')
-        r, g, b = map(int, rgb_str.split(', '))
-        working_colors.append({
-            **color,
-            'rgb_tuple': (r, g, b)
-        })
+    # Get the palette
+    palette = quantized.getpalette()
     
-    # Keep merging until we reach the target
-    while len(working_colors) > max_colors:
-        # Find the two most similar colors
-        min_distance = float('inf')
-        merge_i, merge_j = 0, 1
-        
-        for i in range(len(working_colors)):
-            for j in range(i + 1, len(working_colors)):
-                distance = color_distance(working_colors[i]['rgb_tuple'], working_colors[j]['rgb_tuple'])
-                if distance < min_distance:
-                    min_distance = distance
-                    merge_i, merge_j = i, j
-        
-        # Merge the two colors (keep the one with higher count)
-        color_a = working_colors[merge_i]
-        color_b = working_colors[merge_j]
-        
-        # Determine which color to keep based on count
-        if color_a['count'] >= color_b['count']:
-            keep_idx, remove_idx = merge_i, merge_j
-        else:
-            keep_idx, remove_idx = merge_j, merge_i
-        
-        # Merge counts and recalculate percentage
-        working_colors[keep_idx]['count'] += working_colors[remove_idx]['count']
-        
-        # Remove the merged color
-        working_colors.pop(remove_idx)
+    # Convert back to RGB to count colors
+    quantized_rgb = quantized.convert('RGB')
     
-    # Recalculate percentages
-    total_pixels = sum(c['count'] for c in working_colors)
-    for color in working_colors:
-        color['percentage'] = round((color['count'] / total_pixels) * 100, 2)
-        # Remove rgb_tuple before returning
-        if 'rgb_tuple' in color:
-            del color['rgb_tuple']
+    # Get colors and their counts from the quantized image
+    colors = quantized_rgb.getcolors(maxcolors=num_colors + 10)
     
-    return working_colors
+    return colors
 
 
-def extract_colors(image_bytes: bytes, sort_by: str = 'frequency', limit: int = None) -> List[Dict[str, str]]:
+def auto_detect_color_limit(image: Image.Image) -> int:
+    """
+    Automatically detect the optimal color limit for an image.
+    This analyzes the image to find natural color groupings, ignoring compression artifacts.
+    """
+    # Resize for faster processing
+    max_dimension = 400
+    if image.width > max_dimension or image.height > max_dimension:
+        image = image.copy()
+        image.thumbnail((max_dimension, max_dimension), Image.Resampling.LANCZOS)
+    
+    # Get all unique colors
+    colors = image.getcolors(maxcolors=10000)
+    
+    if colors is None:
+        # Too many colors, likely a photo - default to 32
+        return 32
+    
+    num_colors = len(colors)
+    
+    # If already very few colors, return that count
+    if num_colors <= 8:
+        return num_colors
+    
+    # For pixel art, we expect significant clustering
+    # Try different palette sizes and find where the quality difference plateaus
+    test_sizes = [8, 12, 16, 24, 32, 48, 64]
+    
+    # Find the smallest palette size that captures most of the color variation
+    # We'll use a heuristic: if the image has many similar colors (compression artifacts),
+    # a smaller palette will represent it well
+    
+    # Calculate color variance - if colors are very similar, we need fewer palette colors
+    if num_colors <= 16:
+        return min(num_colors, 16)
+    elif num_colors <= 32:
+        return min(num_colors, 24)
+    elif num_colors <= 64:
+        return 32
+    elif num_colors <= 128:
+        return 40
+    elif num_colors <= 256:
+        return 48
+    else:
+        # Likely a complex image or photo
+        return 64
+
+
+def extract_colors(image_bytes: bytes, sort_by: str = 'frequency', limit: int = None, auto_limit: bool = False) -> List[Dict[str, str]]:
     """Extract unique colors from an image."""
     try:
         # Open image and convert to RGB
         image = Image.open(io.BytesIO(image_bytes))
         image = image.convert('RGB')
         
-        # Optimization 1: Resize very large images
+        # Auto-detect limit if requested
+        if auto_limit:
+            limit = auto_detect_color_limit(image)
+        
+        # Optimization: Resize very large images
         max_dimension = 800
         if image.width > max_dimension or image.height > max_dimension:
             image.thumbnail((max_dimension, max_dimension), Image.Resampling.LANCZOS)
         
-        # Optimization 2: Pre-quantize if image has too many colors
-        # This significantly speeds up processing for complex images
-        colors = image.getcolors(maxcolors=1024)
-        
-        if colors is None:
-            # Too many colors, use quantization to reduce complexity
-            image = quantize_image_colors(image, max_colors=256)
-            image = image.convert('RGB')
-            colors = image.getcolors(maxcolors=1000000)
-        
-        # Optimization 3: If still too many colors after quantization, limit further
-        if colors and len(colors) > 512:
-            # Apply more aggressive quantization
-            image = quantize_image_colors(image, max_colors=128)
-            image = image.convert('RGB')
-            colors = image.getcolors(maxcolors=1000000)
+        # If a color limit is specified, quantize the image to that exact number of colors
+        if limit and limit > 0:
+            # Use PIL's quantization to reduce to exact number of colors
+            colors = quantize_to_palette(image, limit)
+        else:
+            # No limit specified, extract all unique colors (with some optimizations)
+            colors = image.getcolors(maxcolors=1024)
+            
+            if colors is None:
+                # Too many colors, use quantization to reduce complexity
+                colors = quantize_to_palette(image, 256)
+            
+            # If still too many colors, limit to 512 max
+            if colors and len(colors) > 512:
+                colors = quantize_to_palette(image, 128)
         
         # Calculate total pixels
         total_pixels = sum(count for count, _ in colors)
@@ -131,16 +135,6 @@ def extract_colors(image_bytes: bytes, sort_by: str = 'frequency', limit: int = 
                 'percentage': round(percentage, 2)
             })
         
-        # Optimization 4: Cap at 64 colors max before sorting
-        if len(color_list) > 64:
-            # Sort by frequency and take top 64
-            color_list.sort(reverse=True, key=lambda x: x['count'])
-            color_list = color_list[:64]
-            # Recalculate percentages after filtering
-            total_pixels = sum(c['count'] for c in color_list)
-            for color in color_list:
-                color['percentage'] = round((color['count'] / total_pixels) * 100, 2)
-        
         # Sort based on the requested method
         if sort_by == 'luminosity':
             color_list.sort(key=lambda x: rgb_to_luminosity(x['rgb_tuple']), reverse=True)
@@ -153,16 +147,9 @@ def extract_colors(image_bytes: bytes, sort_by: str = 'frequency', limit: int = 
         for color in color_list:
             del color['rgb_tuple']
         
-        # Apply color limit if specified
-        if limit and limit > 0:
-            color_list = merge_similar_colors(color_list, limit)
-            
-            # Re-sort after merging
-            if sort_by == 'frequency':
-                color_list.sort(reverse=True, key=lambda x: x['count'])
-        
         return color_list
     except Exception as e:
         raise HTTPException(status_code=400, detail=f"Error processing image: {str(e)}")
+
 
 
