@@ -4,5 +4,11 @@ __pycache__
 .git
 .gitignore
 README.md
+DEPLOYMENT.md
+LICENSE.md
 hello.py
 uv.lock
+.python-version
+NUL
+*.log
+.DS_Store
