@@ -1,22 +1,46 @@
 from fastapi import FastAPI, File, UploadFile, HTTPException, Body
-from fastapi.responses import HTMLResponse
+from fastapi.responses import HTMLResponse, FileResponse
 from fastapi.staticfiles import StaticFiles
 from pathlib import Path
 from typing import Dict
-from .utils.color_extractor import extract_colors
+import os
+
+# Import from absolute path for Vercel
+try:
+    from app.utils.color_extractor import extract_colors
+except ImportError:
+    from .utils.color_extractor import extract_colors
 
 app = FastAPI(title="Image Color Palette Extractor")
 
-# Mount static files
-static_path = Path(__file__).parent / "static"
-if static_path.exists():
-    app.mount("/static", StaticFiles(directory=str(static_path)), name="static")
+# Get the base directory
+BASE_DIR = Path(__file__).parent
+
+# Mount static files only if not on Vercel
+if not os.environ.get('VERCEL'):
+    static_path = BASE_DIR / "static"
+    if static_path.exists():
+        app.mount("/static", StaticFiles(directory=str(static_path)), name="static")
+
+
+@app.get("/static/css/styles.css")
+async def get_styles():
+    """Serve CSS file."""
+    css_path = BASE_DIR / "static" / "css" / "styles.css"
+    return FileResponse(css_path, media_type="text/css")
+
+
+@app.get("/static/js/app.js")
+async def get_js():
+    """Serve JavaScript file."""
+    js_path = BASE_DIR / "static" / "js" / "app.js"
+    return FileResponse(js_path, media_type="application/javascript")
 
 
 @app.get("/", response_class=HTMLResponse)
 async def home():
     """Serve the main HTML page."""
-    template_path = Path(__file__).parent / "templates" / "index.html"
+    template_path = BASE_DIR / "templates" / "index.html"
     with open(template_path, "r", encoding="utf-8") as f:
         return HTMLResponse(content=f.read())
 

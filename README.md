@@ -63,21 +63,43 @@ http://localhost:8000
 
 ## Deploy to Vercel
 
-1. Install Vercel CLI (if not already installed):
+### Prerequisites
+- GitHub account
+- Vercel account (free tier works)
+
+### Deployment Steps
+
+1. **Push to GitHub:**
 ```bash
-npm i -g vercel
+git init
+git add .
+git commit -m "Initial commit"
+git remote add origin YOUR_GITHUB_REPO_URL
+git push -u origin main
 ```
 
-2. Deploy:
-```bash
-vercel
-```
+2. **Deploy on Vercel:**
+   - Go to [vercel.com](https://vercel.com)
+   - Click "Import Project"
+   - Select your GitHub repository
+   - Vercel will auto-detect the configuration
+   - Click "Deploy"
 
-Or connect your GitHub repository to Vercel for automatic deployments.
+3. **Environment Variables (Optional):**
+   - No environment variables needed for basic deployment
 
 ### Vercel Configuration
 
-The project includes `vercel.json` with the proper configuration for FastAPI deployment. The static files are served from the `app/static` directory.
+The project includes `vercel.json` with the proper configuration for FastAPI deployment. The API endpoint is served from the `api/` directory following Vercel's serverless function structure.
+
+### Important Notes
+
+- Static files are served directly through FastAPI routes
+- The app uses Python 3.9+ on Vercel
+- Maximum execution time: 10 seconds (Vercel Hobby plan)
+- Large images are automatically optimized for fast processing
+
+Or connect your GitHub repository to Vercel for automatic deployments.
 
 ## Usage
 
