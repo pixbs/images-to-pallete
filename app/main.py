@@ -27,6 +27,8 @@ if not os.environ.get('VERCEL'):
 async def get_styles():
     """Serve CSS file."""
     css_path = BASE_DIR / "static" / "css" / "styles.css"
+    if not css_path.exists():
+        raise HTTPException(status_code=404, detail="CSS file not found")
     return FileResponse(css_path, media_type="text/css")
 
 
@@ -34,7 +36,17 @@ async def get_styles():
 async def get_js():
     """Serve JavaScript file."""
     js_path = BASE_DIR / "static" / "js" / "app.js"
+    if not js_path.exists():
+        raise HTTPException(status_code=404, detail="JS file not found")
     return FileResponse(js_path, media_type="application/javascript")
+
+
+@app.get("/favicon.ico")
+async def get_favicon():
+    """Handle favicon requests."""
+    from fastapi.responses import Response
+    # Return empty response for favicon
+    return Response(status_code=204)
 
 
 @app.get("/", response_class=HTMLResponse)
